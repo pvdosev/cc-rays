@@ -55,9 +55,19 @@ local default_palette = {
   {id = 32768, r = 17, b = 17, g = 17},
 }
 
+-- I looked at various ways to generate this
+-- then I stole it from wikipedia
+local bayer4x4 = {
+  {0.0625, 0.5625, 0.1875, 0.6875},
+  {0.8125, 0.3125, 0.9375, 0.4375},
+  {0.25, 0.75, 0.125, 0.625},
+  {1, 0.5, 0.875, 0.375}
+}
+
 local custom_palette = {}
 
 return {spheres = spheres,
         lights = lights,
         default_palette = default_palette,
-        custom_palette = custom_palette}
+        custom_palette = custom_palette,
+        bayer4x4 = bayer4x4}

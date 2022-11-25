@@ -19,6 +19,7 @@ local function main()
     for y = min_y, max_y, 1 do
       local vec3_viewport_point = ray.displayToViewport(x, y, max_x, max_y)
       local h, s, v = ray.traceRay(vec3_origin, vec3_viewport_point, 1, inf, static.spheres, static.lights)
+      v = v + (static.bayer4x4[((x - 1) % 3) + 1][((y - 1) % 3) + 1] * .5 - 0.2)
       local r, g, b = ray.HSVtoRGB(h, s, v)
       local closest_id = 0
       local closest_dist = math.huge
