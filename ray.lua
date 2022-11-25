@@ -1,6 +1,59 @@
 -- we're using the built-in computercraft vector type
 local static = require("static")
+-- COLORS
 
+-- stolen from http://www.easyrgb.com/en/math.php
+local function HSVtoRGB(h, s, v)
+  local r = 0
+  local g = 0
+  local b = 0
+  if s == 0 then
+    r = v * 255
+    g = v * 255
+    b = v * 255
+  else
+    hue = h * 6
+    if (hue == 6) then hue = 0 end
+    i = math.floor(hue)
+    v1 = v * (1 - s)
+    v2 = v * (1 - s * (hue - 1))
+    v3 = v * (1 - s * (1 - (hue - 1)))
+
+    if (i == 0) then
+      r = v
+      g = v3
+      b = v1
+    elseif (i == 1) then
+      r = v2
+      g = v
+      b = v1
+    elseif (i == 2) then
+      r = v1
+      g = v
+      b = v3
+    elseif (i == 3) then
+      r = v1
+      g = v2
+      b = v
+    elseif (i == 4) then
+      r = v3
+      g = v1
+      b = v
+    else
+      r = v
+      g = v1
+      b = v2
+    end
+  end
+  return r * 255, g * 255, b * 255
+end
+
+
+local function euclideanDistance(x1, y1, z1, x2, y2, z2)
+  return math.sqrt((x1 - x2)^2 + (y1 - y2)^2 + (z1 - z2)^2)
+end
+
+-- RAYTRACING
 -- tranforms the display coordinates to the world coordinates of the viewport
 local function displayToViewport(x, y, max_x, max_y)
   -- scales x by the ratio between the height and width of the screen
@@ -27,10 +80,6 @@ local function intersectRaySphere(vec3_origin, vec3_direction, sphere)
   local dist1 = (-b + math.sqrt(discriminant)) / (2 * a)
   local dist2 = (-b - math.sqrt(discriminant)) / (2 * a)
   return dist1, dist2
-end
-
-
-local function quantizeColors(color, intensity)
 end
 
 
@@ -80,14 +129,20 @@ local function traceRay(vec3_origin, vec3_viewport_point, near, far, intersector
   local vec3_intersect = vec3_origin:add(vec3_viewport_point:mul(closest_dist))
   local vec3_normal = vec3_intersect:sub(closest_obj.vec3_center)
   vec3_normal:normalize()
-  light_intensity = calcLighting(vec3_intersect, vec3_normal, lights)
-  if light_intensity > 0.5 then
-    return colors.red
-  else
-    return colors.gray
+  local light_intensity = calcLighting(vec3_intersect, vec3_normal, lights)
+  --if light_intensity < 0.3 then light_intensity = 0.3 end
+  local r, g, b = HSVtoRGB(closest_obj.hue, closest_obj.saturation, light_intensity)
+  local closest_id = 0
+  local closest_dist = math.huge
+  local curr_dist = 0
+  for index, color in ipairs(static.default_palette) do
+    curr_dist = euclideanDistance(color.r, color.g, color.b, r, g, b)
+    if curr_dist < closest_dist then
+      closest_dist = curr_dist
+      closest_id = color.id
+    end
   end
+  return closest_id
 end
 
-return {displayToViewport = displayToViewport,
-traceRay = traceRay,
-}
+return {displayToViewport = displayToViewport, traceRay = traceRay}
