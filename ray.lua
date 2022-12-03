@@ -54,11 +54,10 @@ end
 
 -- RAYTRACING
 -- tranforms the display coordinates to the world coordinates of the viewport
-local function displayToViewport(x, y, max_x, max_y)
+local function displayToViewport(x, y, max_x, max_y, pixel_ratio)
   -- scales x by the ratio between the height and width of the screen
-  -- the y is divided by 1.5 because the characters in computercraft are rectangular
-  -- as measured from a monitor
-  return vector.new(x / max_x * (max_x / max_y) - (max_x / max_y / 2), (y / max_y * 2 - 1) / 1.5, 1)
+  -- divided by the ratio between pixel height and width
+  return vector.new(x / max_x * (max_x / max_y) - (max_x / max_y / 2), (y / max_y * 2 - 1) / pixel_ratio, 1)
 end
 
 

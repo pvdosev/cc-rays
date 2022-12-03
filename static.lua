@@ -3,36 +3,42 @@ local spheres = {
     vec3_center = vector.new(0, 1, 3),
     radius = 1,
     hue = 0.5,
-    saturation = 0.5,
+    saturation = 0.6,
   },
   {
     vec3_center = vector.new(2, 0, 4),
     radius = 1,
     hue = 0.1,
-    saturation = 0.7,
+    saturation = 0.4,
   },
   {
-    vec3_center = vector.new(-2, 0, 4),
+    vec3_center = vector.new(-3, 1, 4),
     radius = 1,
-    hue = 0.9,
-    saturation = 0.3,
-  }
+    hue = 0.7,
+    saturation = 0.4,
+  },
+ {
+   vec3_center = vector.new(0, 502, 10),
+   radius = 500,
+   hue = 0.4,
+   saturation = 0.5
+ }
 }
 
 local lights = {
   {
     light_type = "ambient",
-    intensity = 0.3
+    intensity = 0.2,
   },
   {
     light_type = "point",
-    intensity = 0.2,
-    vec3_position = vector.new(2, 1, 3)
+    intensity = 0.3,
+    vec3_position = vector.new(1, -1, -1)
   },
   {
     light_type = "directional",
     intensity = 0.5,
-    vec3_direction = vector.new(4, -5, -1)
+    vec3_direction = vector.new(10, -20, 15)
   }
 }
 
