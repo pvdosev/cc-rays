@@ -128,13 +128,11 @@ local function traceRay(vec3_origin, vec3_viewport_point, near, far, intersector
   local vec3_normal = vec3_intersect:sub(closest_obj.vec3_center)
   vec3_normal:normalize()
   local light_intensity = calcLighting(vec3_intersect, vec3_normal, lights)
-  --if light_intensity < 0.3 then light_intensity = 0.3 end
 
-  --debug.debug()
   return closest_obj.hue, closest_obj.saturation, light_intensity
 end
 
 return {displayToViewport = displayToViewport,
         traceRay = traceRay,
-        HSVtoRGB = HSVtoRGB,
-        euclideanDistance = euclideanDistance}
+        euclideanDistance = euclideanDistance,
+        HSVtoRGB = HSVtoRGB}
