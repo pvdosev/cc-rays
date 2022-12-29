@@ -4,24 +4,28 @@ local spheres = {
     radius = 1,
     hue = 0.5,
     saturation = 0.6,
+    specular = 1000,
   },
   {
     vec3_center = vector.new(2, 0, 4),
     radius = 1,
     hue = 0.1,
     saturation = 0.4,
+    specular = 500,
   },
   {
     vec3_center = vector.new(-3, 1, 4),
     radius = 1,
     hue = 0.7,
     saturation = 0.4,
+    specular = 10,
   },
  {
    vec3_center = vector.new(0, 502, 10),
    radius = 500,
    hue = 0.4,
-   saturation = 0.5
+   saturation = 1,
+   specular = 0,
  }
 }
 
@@ -64,7 +68,7 @@ local default_palette = {
 -- I looked at various ways to generate this
 -- then I stole it from wikipedia
 local bayer4x4 = {
-  {0.0625, 0.5625, 0.1875, 0.6875},
+  {0.0625, 0.5625, 0.18;75, 0.6875},
   {0.8125, 0.3125, 0.9375, 0.4375},
   {0.25, 0.75, 0.125, 0.625},
   {1, 0.5, 0.875, 0.375}

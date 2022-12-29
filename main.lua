@@ -15,6 +15,7 @@ local function setup()
     -- we're in craftos!
     display.setGraphicsMode(1)
     -- why does 2 make things look correct? ¯\_(ツ)_/¯
+    -- TODO double check math
     pixel_ratio = 2
   else
     -- we're in minecraft!
@@ -34,6 +35,7 @@ local function main()
   if (display.getGraphicsMode() > 0) then min = 0 else min = 1 end
   local vec3_origin = vector.new(0, 0, 0)
 
+  -- TODO why do the proper kernels that add up to 1 cause weird artifacts??
   -- Atkinson Dither
   -- this is how many rows of dither data we're keeping,
   -- equal to the y range of the dither matrix
@@ -53,33 +55,32 @@ local function main()
   -- local diffusion_row_num = 2
   -- local diffusion_matrix = {
   --   { x = 1, y = 0, fraction = 6/16 },
-  --   { x = -1, y = 1, fraction = 3/16 },
+  --   { x = -1, y = 1, fraction = 2/16 },
   --   { x = 0, y = 1, fraction = 5/16 },
   --   { x = 1, y = 1, fraction = 1/16 }
   -- }
 
   -- Jarvis-Judice-Ninke Dither
-  -- quite modified cause of artifacts
   local diffusion_row_num = 3
   local diffusion_matrix = {
-    { x = 1, y = 0, fraction = 6/48 },
-    { x = 2, y = 0, fraction = 4/48 },
-    { x = -2, y = 1, fraction = 2/48 },
-    { x = -1, y = 1, fraction = 4/48 },
-    { x = 0, y = 1, fraction = 6/48 },
-    { x = 1, y = 1, fraction = 4/48 },
-    { x = 2, y = 1, fraction = 2/48 },
+    { x = 1, y = 0, fraction = 7/48 },
+    { x = 2, y = 0, fraction = 5/48 },
+    { x = -2, y = 1, fraction = 3/48 },
+    { x = -1, y = 1, fraction = 5/48 },
+    { x = 0, y = 1, fraction = 7/48 },
+    { x = 1, y = 1, fraction = 5/48 },
+    { x = 2, y = 1, fraction = 3/48 },
     { x = -2, y = 2, fraction = 1/48 },
-    { x = -1, y = 2, fraction = 2/48 },
-    { x = 0, y = 2, fraction = 4/48 },
-    { x = 1, y = 2, fraction = 2/48 },
+    { x = -1, y = 2, fraction = 3/48 },
+    { x = 0, y = 2, fraction = 5/48 },
+    { x = 1, y = 2, fraction = 3/48 },
     { x = 2, y = 2, fraction = 1/48 },
   }
 
   -- -- Sierra Simplified Dither
   -- local diffusion_row_num = 2
   -- local diffusion_matrix = {
-  --   { x = 1, y = 0, fraction = 1/2 },
+  --   { x = 1, y = 0, fraction = 1/4 },
   --   { x = -1, y = 1, fraction = 1/4 },
   --   { x = 0, y = 1, fraction = 1/4 }
   -- }
@@ -87,6 +88,7 @@ local function main()
   local curr_row = 0
   local diffusion_rows = {}
   -- initialize diffusion buffers
+  -- the difference between pixels will be stored here
   for i = 1, diffusion_row_num, 1 do
     diffusion_rows[i] = {}
     for j = 1, max_x, 1 do
@@ -108,13 +110,18 @@ local function main()
     curr_row = y % diffusion_row_num
     if curr_row == 0 then curr_row = diffusion_row_num end
     for x = 1, max_x, 1 do
+      -- raytrace!
       local vec3_viewport_point = ray.displayToViewport(x, y, max_x, max_y, pixel_ratio)
       local h, s, v = ray.traceRay(vec3_origin, vec3_viewport_point, 1, inf, static.spheres, static.lights)
       local r, g, b = ray.HSVtoRGB(h, s, v)
+
+      -- add error from the dithering buffers
       r = r + diffusion_rows[curr_row][x].r
       g = g + diffusion_rows[curr_row][x].g
       b = b + diffusion_rows[curr_row][x].b
       closest_dist = math.huge
+
+      -- find closest color
       for index, color in ipairs(static.default_palette) do
         curr_dist = ray.euclideanDistance(r, g, b, color.r, color.g, color.b)
         if curr_dist < closest_dist then
@@ -126,22 +133,25 @@ local function main()
       r_diff = r - static.default_palette[closest_index].r
       g_diff = g - static.default_palette[closest_index].g
       b_diff = b - static.default_palette[closest_index].b
-      --debug.debug()
+
+      -- spread difference between closest color and actual color to nearby pixels
       for index, cell in ipairs(diffusion_matrix) do
         local x_cell = x + cell.x
         local y_cell = (curr_row + cell.y) % diffusion_row_num
         if y_cell == 0 then y_cell = diffusion_row_num end
         if diffusion_rows[y_cell][x_cell] then
-          diffusion_rows[y_cell][x_cell].r = diffusion_rows[y_cell][x_cell].r + (r_diff * cell.fraction)
-          diffusion_rows[y_cell][x_cell].g = diffusion_rows[y_cell][x_cell].g + (g_diff * cell.fraction)
-          diffusion_rows[y_cell][x_cell].b = diffusion_rows[y_cell][x_cell].b + (b_diff * cell.fraction)
+          -- we are multiplying the result by 0.85 because adding the full error produces weird visual artifacts
+          diffusion_rows[y_cell][x_cell].r = diffusion_rows[y_cell][x_cell].r + (r_diff * cell.fraction) * 0.85
+          diffusion_rows[y_cell][x_cell].g = diffusion_rows[y_cell][x_cell].g + (g_diff * cell.fraction) * 0.85
+          diffusion_rows[y_cell][x_cell].b = diffusion_rows[y_cell][x_cell].b + (b_diff * cell.fraction) * 0.85
         end
       end
       -- x - 1 + min offsets the image so we don't have an empty row and column in gfx mode
+      -- TODO double check math, looks like the bottom row is empty
       paintutils.drawPixel(x - 1 + min, y - 1 + min, closest_id)
     end
 
-    -- clear current diffusion buffer
+    -- clear diffusion buffer for current row once we're done with it
     for i = 1, max_x, 1 do
       diffusion_rows[curr_row][i].r = 0
       diffusion_rows[curr_row][i].g = 0
@@ -149,7 +159,7 @@ local function main()
     end
   end
 
-  -- waits for a key event to exit. Needed for craftos graphics mode, which immediately clears
+  -- waits for a key event to exit. Needed for craftos graphics mode, which immediately clears the screen
   os.pullEvent("key")
 end
 

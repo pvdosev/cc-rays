@@ -1,6 +1,6 @@
 -- we're using the built-in computercraft vector type
--- COLORS
 
+-- COLORS
 -- stolen from http://www.easyrgb.com/en/math.php
 local function HSVtoRGB(h, s, v)
   local r = 0
@@ -65,7 +65,7 @@ end
 -- inf if it doesn't intersect
 local function intersectRaySphere(vec3_origin, vec3_direction, sphere)
   local radius = sphere.radius
-  local vec3_co = vec3_origin:sub(sphere.vec3_center)
+  local vec3_co = vec3_origin - sphere.vec3_center
 
   -- construct a quadratic equation to find intersections
   local a = vec3_direction:dot(vec3_direction) -- the length of the vector
@@ -83,34 +83,47 @@ end
 
 -- gathers lighting information for a point in the world
 -- using a list of lights
-local function calcLighting(vec3_point, vec3_normal, lights)
+local function calcLighting(vec3_point, vec3_normal, vec3_view_dir, specular, lights)
   local intensity = 0
-  local vec3_light = nil -- needed for local scope
+  local vec3_light_dir = nil -- needed for local scope
   for index, light in ipairs(lights) do
     if light.light_type == "ambient" then
       intensity = light.intensity + intensity
     else
       if light.light_type == "point" then
-        vec3_light = light.vec3_position:sub(vec3_point)
+        vec3_light_dir = light.vec3_position - vec3_point
       else -- light is directional
-        vec3_light = light.vec3_direction
+        vec3_light_dir = light.vec3_direction
       end
-      local n_dot_l = vec3_light:dot(vec3_normal)
+      local n_dot_l = vec3_light_dir:dot(vec3_normal)
       if n_dot_l > 0 then
-        intensity = intensity + light.intensity * n_dot_l / (vec3_light:length() * vec3_normal:length())
+        intensity = intensity + light.intensity * n_dot_l / (vec3_light_dir:length() * vec3_normal:length())
+      end
+
+      if specular ~= 0 then
+        -- a vector symmetric to the light direction through the normal
+        local vec3_reflection = vec3_normal * vec3_normal:dot(vec3_light_dir) * 2 - vec3_light_dir
+        -- how closely aligned the view direction is with the reflection
+        local r_dot_v = vec3_reflection:dot(vec3_view_dir)
+        if r_dot_v > 0 then
+          -- add the cosine of the reflection and view angles to the intensity.
+          -- the closer the two vectors are the higher it is. it is scaled by the specular,
+          -- causing a sharper falloff
+          intensity = intensity +
+            light.intensity * (r_dot_v / (vec3_reflection:length() * vec3_view_dir:length())) ^ specular
+        end
       end
     end
   end
   return intensity
 end
 
-
--- using the scene and camera information, traces a ray and returns a color index
-local function traceRay(vec3_origin, vec3_viewport_point, near, far, intersectors, lights)
+-- return closest intersection between a ray and a list of spheres
+local function findClosestIntersection(vec3_origin, vec3_direction, near, far, intersectors)
   local closest_dist = inf
   local closest_obj = nil
   for index, obj in ipairs(intersectors) do
-    local dist1, dist2 = intersectRaySphere(vec3_origin, vec3_viewport_point, obj)
+    local dist1, dist2 = intersectRaySphere(vec3_origin, vec3_direction, obj)
     if dist1 > near and dist1 < far and dist1 < closest_dist then
       closest_dist = dist1
       closest_obj = obj
@@ -120,14 +133,22 @@ local function traceRay(vec3_origin, vec3_viewport_point, near, far, intersector
       closest_obj = obj
     end
   end
+  return closest_dist, closest_obj
+end
+
+-- using the scene and camera information, traces a ray and returns a color index
+local function traceRay(vec3_origin, vec3_viewport_point, near, far, intersectors, lights)
+  local closest_dist, closest_obj =
+    findClosestIntersection(vec3_origin, vec3_viewport_point, near, far, intersectors)
   if not closest_obj then
     return 0, 0, 0
   end
 
-  local vec3_intersect = vec3_origin:add(vec3_viewport_point:mul(closest_dist))
-  local vec3_normal = vec3_intersect:sub(closest_obj.vec3_center)
-  vec3_normal:normalize()
-  local light_intensity = calcLighting(vec3_intersect, vec3_normal, lights)
+  local vec3_intersect = vec3_origin + vec3_viewport_point * closest_dist
+  local vec3_normal = vec3_intersect - closest_obj.vec3_center
+  -- TODO we should really be passing the whole color into this
+  local light_intensity =
+    calcLighting(vec3_intersect, vec3_normal:normalize(), -vec3_intersect, closest_obj.specular, lights)
 
   return closest_obj.hue, closest_obj.saturation, light_intensity
 end
