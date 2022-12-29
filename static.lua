@@ -21,7 +21,7 @@ local spheres = {
     specular = 10,
   },
  {
-   vec3_center = vector.new(0, 502, 10),
+   vec3_center = vector.new(0, 501, 20),
    radius = 500,
    hue = 0.4,
    saturation = 1,
@@ -36,12 +36,12 @@ local lights = {
   },
   {
     light_type = "point",
-    intensity = 0.3,
-    vec3_position = vector.new(1, -1, -1)
+    intensity = 0.4,
+    vec3_position = vector.new(1, -10, -1)
   },
   {
     light_type = "directional",
-    intensity = 0.5,
+    intensity = 0.4,
     vec3_direction = vector.new(10, -20, 15)
   }
 }

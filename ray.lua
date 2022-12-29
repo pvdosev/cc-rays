@@ -57,6 +57,7 @@ end
 local function displayToViewport(x, y, max_x, max_y, pixel_ratio)
   -- scales x by the ratio between the height and width of the screen
   -- divided by the ratio between pixel height and width
+  -- this could be a 2d vector transformation but the vector library doesn't support 2d vectors
   return vector.new(x / max_x * (max_x / max_y) - (max_x / max_y / 2), (y / max_y * 2 - 1) / pixel_ratio, 1)
 end
 
@@ -80,44 +81,6 @@ local function intersectRaySphere(vec3_origin, vec3_direction, sphere)
   return dist1, dist2
 end
 
-
--- gathers lighting information for a point in the world
--- using a list of lights
-local function calcLighting(vec3_point, vec3_normal, vec3_view_dir, specular, lights)
-  local intensity = 0
-  local vec3_light_dir = nil -- needed for local scope
-  for index, light in ipairs(lights) do
-    if light.light_type == "ambient" then
-      intensity = light.intensity + intensity
-    else
-      if light.light_type == "point" then
-        vec3_light_dir = light.vec3_position - vec3_point
-      else -- light is directional
-        vec3_light_dir = light.vec3_direction
-      end
-      local n_dot_l = vec3_light_dir:dot(vec3_normal)
-      if n_dot_l > 0 then
-        intensity = intensity + light.intensity * n_dot_l / (vec3_light_dir:length() * vec3_normal:length())
-      end
-
-      if specular ~= 0 then
-        -- a vector symmetric to the light direction through the normal
-        local vec3_reflection = vec3_normal * vec3_normal:dot(vec3_light_dir) * 2 - vec3_light_dir
-        -- how closely aligned the view direction is with the reflection
-        local r_dot_v = vec3_reflection:dot(vec3_view_dir)
-        if r_dot_v > 0 then
-          -- add the cosine of the reflection and view angles to the intensity.
-          -- the closer the two vectors are the higher it is. it is scaled by the specular,
-          -- causing a sharper falloff
-          intensity = intensity +
-            light.intensity * (r_dot_v / (vec3_reflection:length() * vec3_view_dir:length())) ^ specular
-        end
-      end
-    end
-  end
-  return intensity
-end
-
 -- return closest intersection between a ray and a list of spheres
 local function findClosestIntersection(vec3_origin, vec3_direction, near, far, intersectors)
   local closest_dist = inf
@@ -136,6 +99,51 @@ local function findClosestIntersection(vec3_origin, vec3_direction, near, far, i
   return closest_dist, closest_obj
 end
 
+-- gathers lighting information for a point in the world
+-- using a list of lights
+local function calcLighting(vec3_point, vec3_normal, vec3_view_dir, specular, intersectors, lights)
+  local intensity = 0
+  local vec3_light_dir = nil -- needed for local scope
+  for index, light in ipairs(lights) do
+    if light.light_type == "ambient" then
+      intensity = light.intensity + intensity
+    else
+      if light.light_type == "point" then
+        vec3_light_dir = light.vec3_position - vec3_point
+      else -- light is directional
+        vec3_light_dir = light.vec3_direction
+      end
+
+      -- check for shadows
+      shadow_dist, shadow_obj =
+        findClosestIntersection(vec3_point, vec3_light_dir, 0.001, math.huge, intersectors)
+      if not shadow_obj then
+
+        -- diffuse calculation
+        local n_dot_l = vec3_light_dir:dot(vec3_normal)
+        if n_dot_l > 0 then
+          intensity = intensity + light.intensity * n_dot_l / (vec3_light_dir:length() * vec3_normal:length())
+        end
+
+        if specular ~= 0 then
+          -- a vector symmetric to the light direction through the normal
+          local vec3_reflection = vec3_normal * vec3_normal:dot(vec3_light_dir) * 2 - vec3_light_dir
+          -- how closely aligned the view direction is with the reflection
+          local r_dot_v = vec3_reflection:dot(vec3_view_dir)
+          if r_dot_v > 0 then
+            -- add the cosine of the reflection and view angles to the intensity.
+            -- the closer the two vectors are the higher it is. it is scaled by the specular,
+            -- causing a sharper falloff
+            intensity = intensity +
+              light.intensity * (r_dot_v / (vec3_reflection:length() * vec3_view_dir:length())) ^ specular
+          end
+        end
+      end
+    end
+  end
+  return intensity
+end
+
 -- using the scene and camera information, traces a ray and returns a color index
 local function traceRay(vec3_origin, vec3_viewport_point, near, far, intersectors, lights)
   local closest_dist, closest_obj =
@@ -148,7 +156,14 @@ local function traceRay(vec3_origin, vec3_viewport_point, near, far, intersector
   local vec3_normal = vec3_intersect - closest_obj.vec3_center
   -- TODO we should really be passing the whole color into this
   local light_intensity =
-    calcLighting(vec3_intersect, vec3_normal:normalize(), -vec3_intersect, closest_obj.specular, lights)
+    calcLighting(
+      vec3_intersect,
+      vec3_normal:normalize(),
+      -vec3_intersect,
+      closest_obj.specular,
+      intersectors,
+      lights
+    )
 
   return closest_obj.hue, closest_obj.saturation, light_intensity
 end

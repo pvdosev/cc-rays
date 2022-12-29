@@ -35,31 +35,6 @@ local function main()
   if (display.getGraphicsMode() > 0) then min = 0 else min = 1 end
   local vec3_origin = vector.new(0, 0, 0)
 
-  -- TODO why do the proper kernels that add up to 1 cause weird artifacts??
-  -- Atkinson Dither
-  -- this is how many rows of dither data we're keeping,
-  -- equal to the y range of the dither matrix
-  -- local diffusion_row_num = 3
-  -- local diffusion_matrix = {
-  --   { x = 1, y = 0, fraction = 1/8 },
-  --   { x = 2, y = 0, fraction = 1/8 },
-  --   { x = -1, y = 1, fraction = 1/8 },
-  --   { x = 0, y = 1, fraction = 1/8 },
-  --   { x = 1, y = 1, fraction = 1/8 },
-  --   { x = 1, y = 2, fraction = 1/8 }
-  -- }
-
-  -- Floyd Steinberg Dither
-  -- I'm removing 1 from the (1, 0) fraction
-  -- spreading the full error causes artifacts?
-  -- local diffusion_row_num = 2
-  -- local diffusion_matrix = {
-  --   { x = 1, y = 0, fraction = 6/16 },
-  --   { x = -1, y = 1, fraction = 2/16 },
-  --   { x = 0, y = 1, fraction = 5/16 },
-  --   { x = 1, y = 1, fraction = 1/16 }
-  -- }
-
   -- Jarvis-Judice-Ninke Dither
   local diffusion_row_num = 3
   local diffusion_matrix = {
@@ -76,14 +51,6 @@ local function main()
     { x = 1, y = 2, fraction = 3/48 },
     { x = 2, y = 2, fraction = 1/48 },
   }
-
-  -- -- Sierra Simplified Dither
-  -- local diffusion_row_num = 2
-  -- local diffusion_matrix = {
-  --   { x = 1, y = 0, fraction = 1/4 },
-  --   { x = -1, y = 1, fraction = 1/4 },
-  --   { x = 0, y = 1, fraction = 1/4 }
-  -- }
 
   local curr_row = 0
   local diffusion_rows = {}
@@ -107,6 +74,13 @@ local function main()
   local closest_id = 0
   local curr_dist = 0
   for y = 1, max_y, 1 do
+    -- ugly hack. we do multiple intersections per pixel to see if it hits any spheres,
+    -- then to see if any shadows are formed. this is slow and the math functions don't yield.
+    -- making a fake event causes the function to yield, allowing craftos to keep processing
+    -- stuff without crashing
+    os.queueEvent("fakeEvent");
+    os.pullEvent();
+
     curr_row = y % diffusion_row_num
     if curr_row == 0 then curr_row = diffusion_row_num end
     for x = 1, max_x, 1 do
